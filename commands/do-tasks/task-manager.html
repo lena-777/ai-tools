@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Requirement Manager</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f5f5f5; color: #333; min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: #fff; border-bottom: 1px solid #e0e0e0;
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .api-config {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666;
+  }
+  .api-config input {
+    border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px;
+    font-size: 13px; width: 260px; outline: none;
+  }
+  .api-config input:focus { border-color: #4f8cff; }
+  .api-config .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+  }
+  .api-config .status-dot.ok { background: #34c759; }
+  .api-config .status-dot.err { background: #ff3b30; }
+
+  /* Main */
+  .container { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+
+  /* Add form */
+  .add-form {
+    background: #fff; border-radius: 10px; padding: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 20px;
+  }
+  .add-form .row { display: flex; gap: 8px; }
+  .add-form input[type="text"] {
+    flex: 1; border: 1px solid #ddd; border-radius: 6px;
+    padding: 10px 12px; font-size: 14px; outline: none;
+  }
+  .add-form input[type="text"]:focus { border-color: #4f8cff; }
+  .add-form textarea {
+    width: 100%; border: 1px solid #ddd; border-radius: 6px;
+    padding: 8px 12px; font-size: 13px; outline: none;
+    margin-top: 8px; resize: vertical; min-height: 60px; display: none;
+  }
+  .add-form textarea:focus { border-color: #4f8cff; }
+  .add-form .toggle-desc {
+    font-size: 12px; color: #999; cursor: pointer; margin-top: 8px;
+    display: inline-block;
+  }
+  .add-form .toggle-desc:hover { color: #4f8cff; }
+
+  .btn {
+    border: none; border-radius: 6px; padding: 10px 18px;
+    font-size: 14px; cursor: pointer; font-weight: 500; transition: background 0.15s;
+  }
+  .btn-primary { background: #4f8cff; color: #fff; }
+  .btn-primary:hover { background: #3a7ae8; }
+  .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
+
+  /* Filter tabs */
+  .filter-tabs {
+    display: flex; gap: 6px; margin-bottom: 16px;
+  }
+  .filter-tab {
+    padding: 6px 14px; border-radius: 20px; font-size: 13px;
+    border: 1px solid #ddd; background: #fff; cursor: pointer;
+    transition: all 0.15s; color: #666;
+  }
+  .filter-tab:hover { border-color: #4f8cff; color: #4f8cff; }
+  .filter-tab.active { background: #4f8cff; color: #fff; border-color: #4f8cff; }
+  .filter-tab .count {
+    display: inline-block; background: rgba(0,0,0,0.1); border-radius: 10px;
+    padding: 0 6px; margin-left: 4px; font-size: 11px;
+  }
+  .filter-tab.active .count { background: rgba(255,255,255,0.3); }
+
+  /* Task list */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-item {
+    background: #fff; border-radius: 10px; padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex;
+    align-items: flex-start; gap: 12px; transition: box-shadow 0.15s;
+  }
+  .task-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+  .task-status-btn {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ddd;
+    background: #fff; cursor: pointer; flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; transition: all 0.15s;
+  }
+  .task-status-btn.pending { border-color: #ccc; }
+  .task-status-btn.in_progress { border-color: #ff9500; background: #fff3e0; }
+  .task-status-btn.done { border-color: #34c759; background: #34c759; color: #fff; cursor: default; }
+
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 14px; line-height: 1.4; word-break: break-word; }
+  .task-item.done .task-title { text-decoration: line-through; color: #999; }
+  .task-meta {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+    font-size: 12px; color: #999;
+  }
+  .task-desc {
+    font-size: 12px; color: #888; margin-top: 4px; line-height: 1.4;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .task-notes {
+    font-size: 12px; color: #4f8cff; margin-top: 4px; line-height: 1.4;
+    white-space: pre-wrap; word-break: break-word; background: #f0f7ff;
+    padding: 6px 8px; border-radius: 6px;
+  }
+
+  .task-delete {
+    background: none; border: none; color: #ccc; cursor: pointer;
+    font-size: 16px; padding: 2px 4px; opacity: 0; transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+  .task-item:hover .task-delete { opacity: 1; }
+  .task-delete:hover { color: #ff3b30; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 0; color: #999; font-size: 14px; }
+
+  /* Auto-refresh indicator */
+  .refresh-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: #999; margin-bottom: 12px;
+  }
+  .refresh-bar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+  @media (max-width: 520px) {
+    .header { padding: 12px 16px; }
+    .api-config input { width: 180px; }
+    .container { padding: 0 8px; margin: 12px auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 Requirement Manager</h1>
+  <div class="api-config">
+    <span>API:</span>
+    <input type="text" id="apiBase" value="http://127.0.0.1:5001" onchange="saveApiBase(); checkApi();">
+    <span id="statusDot" class="status-dot"></span>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Add task form -->
+  <div class="add-form">
+    <div class="row">
+      <input type="text" id="titleInput" placeholder="输入需求标题，回车添加..." onkeydown="if(event.key==='Enter')addTask();">
+      <button class="btn btn-primary" onclick="addTask()">添加</button>
+    </div>
+    <span class="toggle-desc" onclick="toggleDesc()">+ 添加描述</span>
+    <textarea id="descInput" placeholder="需求描述（可选）..."></textarea>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-tabs">
+    <div class="filter-tab active" data-status="all" onclick="setFilter('all')">全部 <span class="count" id="count-all">0</span></div>
+    <div class="filter-tab" data-status="pending" onclick="setFilter('pending')">待处理 <span class="count" id="count-pending">0</span></div>
+    <div class="filter-tab" data-status="in_progress" onclick="setFilter('in_progress')">进行中 <span class="count" id="count-in_progress">0</span></div>
+    <div class="filter-tab" data-status="done" onclick="setFilter('done')">已完成 <span class="count" id="count-done">0</span></div>
+  </div>
+
+  <!-- Refresh bar -->
+  <div class="refresh-bar">
+    <span id="lastRefresh">--</span>
+    <label><input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()"> 自动刷新 (10s)</label>
+  </div>
+
+  <!-- Task list -->
+  <div class="task-list" id="taskList">
+    <div class="empty">加载中...</div>
+  </div>
+</div>
+
+<script>
+  let tasks = [];
+  let currentFilter = 'all';
+  let refreshTimer = null;
+
+  // API base
+  function getApiBase() {
+    return document.getElementById('apiBase').value.replace(/\/+$/, '');
+  }
+  function saveApiBase() {
+    try { localStorage.setItem('req-mgr-api', getApiBase()); } catch(e) {}
+  }
+  function loadApiBase() {
+    try {
+      const saved = localStorage.getItem('req-mgr-api');
+      if (saved) document.getElementById('apiBase').value = saved;
+    } catch(e) {}
+  }
+
+  // Check API connectivity
+  async function checkApi() {
+    const dot = document.getElementById('statusDot');
+    try {
+      const res = await fetch(getApiBase() + '/api/requirements?status=pending', { method: 'GET' });
+      dot.className = res.ok ? 'status-dot ok' : 'status-dot err';
+    } catch(e) {
+      dot.className = 'status-dot err';
+    }
+  }
+
+  // Fetch tasks
+  async function fetchTasks() {
+    try {
+      const res = await fetch(getApiBase() + '/api/requirements');
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      tasks = data.requirements || data || [];
+      document.getElementById('statusDot').className = 'status-dot ok';
+    } catch(e) {
+      document.getElementById('statusDot').className = 'status-dot err';
+    }
+    renderTasks();
+    updateCounts();
+    document.getElementById('lastRefresh').textContent = '更新于 ' + new Date().toLocaleTimeString();
+  }
+
+  // Render
+  function renderTasks() {
+    const list = document.getElementById('taskList');
+    const filtered = currentFilter === 'all' ? tasks : tasks.filter(t => t.status === currentFilter);
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty">暂无任务</div>';
+      return;
+    }
+
+    // Sort: pending first, then in_progress, then done; within same status by created_at asc
+    const order = { pending: 0, in_progress: 1, done: 2 };
+    const sorted = [...filtered].sort((a, b) => {
+      const d = (order[a.status] ?? 9) - (order[b.status] ?? 9);
+      return d !== 0 ? d : (a.created_at || '').localeCompare(b.created_at || '');
+    });
+
+    list.innerHTML = sorted.map(t => `
+      <div class="task-item ${t.status}">
+        <button class="task-status-btn ${t.status}" onclick="cycleStatus(${t.id}, '${t.status}')" title="${t.status === 'done' ? '已完成' : '点击标记完成'}">
+          ${t.status === 'done' ? '✓' : t.status === 'in_progress' ? '◉' : ''}
+        </button>
+        <div class="task-body">
+          <div class="task-title">${esc(t.title)}</div>
+          <div class="task-meta">
+            <span>${t.created_at || ''}</span>
+          </div>
+          ${t.description ? `<div class="task-desc">${esc(t.description)}</div>` : ''}
+          ${t.notes ? `<div class="task-notes">📝 ${esc(t.notes)}</div>` : ''}
+        </div>
+        <button class="task-delete" onclick="deleteTask(${t.id})" title="删除">&times;</button>
+      </div>
+    `).join('');
+  }
+
+  function updateCounts() {
+    document.getElementById('count-all').textContent = tasks.length;
+    document.getElementById('count-pending').textContent = tasks.filter(t => t.status === 'pending').length;
+    document.getElementById('count-in_progress').textContent = tasks.filter(t => t.status === 'in_progress').length;
+    document.getElementById('count-done').textContent = tasks.filter(t => t.status === 'done').length;
+  }
+
+  function setFilter(status) {
+    currentFilter = status;
+    document.querySelectorAll('.filter-tab').forEach(el => {
+      el.classList.toggle('active', el.dataset.status === status);
+    });
+    renderTasks();
+  }
+
+  // Add task
+  async function addTask() {
+    const title = document.getElementById('titleInput').value.trim();
+    if (!title) return;
+    const desc = document.getElementById('descInput').value.trim();
+
+    const body = { title };
+    if (desc) body.description = desc;
+
+    try {
+      const res = await fetch(getApiBase() + '/api/requirements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('Failed');
+      document.getElementById('titleInput').value = '';
+      document.getElementById('descInput').value = '';
+      await fetchTasks();
+    } catch(e) {
+      alert('添加失败，请检查 API 连接');
+    }
+  }
+
+  // Toggle status: pending → done, in_progress → done (only mark as done, no switching to in_progress)
+  async function cycleStatus(id, current) {
+    if (current === 'done') return; // already done, no action
+    try {
+      await fetch(getApiBase() + `/api/requirements/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done' })
+      });
+      await fetchTasks();
+    } catch(e) {
+      alert('更新失败');
+    }
+  }
+
+  // Delete
+  async function deleteTask(id) {
+    if (!confirm('确认删除此需求？')) return;
+    try {
+      await fetch(getApiBase() + `/api/requirements/${id}`, { method: 'DELETE' });
+      await fetchTasks();
+    } catch(e) {
+      alert('删除失败');
+    }
+  }
+
+  // Toggle description
+  function toggleDesc() {
+    const ta = document.getElementById('descInput');
+    const btn = document.querySelector('.toggle-desc');
+    if (ta.style.display === 'none' || !ta.style.display) {
+      ta.style.display = 'block';
+      btn.textContent = '- 收起描述';
+    } else {
+      ta.style.display = 'none';
+      btn.textContent = '+ 添加描述';
+    }
+  }
+
+  // Auto refresh
+  function toggleAutoRefresh() {
+    if (document.getElementById('autoRefresh').checked) {
+      startAutoRefresh();
+    } else {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+  function startAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(fetchTasks, 10000);
+  }
+
+  // Escape HTML
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  // Init
+  loadApiBase();
+  checkApi();
+  fetchTasks();
+  startAutoRefresh();
+</script>
+</body>
+</html>
