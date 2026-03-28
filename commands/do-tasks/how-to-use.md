@@ -26,7 +26,7 @@
 
 把下面这段话直接发给 Claude Code，它会自动帮你搭建整套功能：
 
-> 请在我**现有项目**中接入「需求任务」功能。**不要创建新的服务或新项目**，直接在当前的后端服务中添加接口、在当前数据库中建表、在现有页面中添加 UI 组件。具体要求：
+> 请在我**现有项目**中接入「需求任务」功能。**不要创建新的服务或新项目**，直接在当前的后端服务中添加接口、在当前数据库中建表、在现有页面中添加 UI 组件。如果项目当前没有后端服务或前端页面，则需要新建一个轻量服务来提供 API 和页面。具体要求：
 >
 > **1. 数据库**
 > 在现有数据库中创建 requirements 表（注意：不要使用 tasks 表名，避免与项目自身业务冲突。如果项目还没有数据库，请使用 SQLite），字段：id、title、description、status(pending/in_progress/done)、notes、created_at、updated_at。给 status 加索引。
@@ -39,16 +39,15 @@
 > - DELETE /api/requirements/:id — 删除需求
 >
 > **3. 前端 UI**
-> 在页面右下角添加浮动按钮「需求」，点击后在按钮上方弹出一个悬浮小面板（不是右侧整栏面板），功能包括：
-> - 快速输入框（⌘+Enter 提交）
-> - 任务列表（未完成任务支持编辑，点击可标记为 done；in_progress 状态由 AI 自动设置，无需手动切换）
-> - 未完成数量红色角标
-> - 已完成任务默认折叠，点击可展开
-> - hover 显示删除按钮
-> - 面板固定宽度约 360px，最大高度约 480px，内容超出时滚动
-> - 点击面板外部区域自动关闭
+> 在页面右下角添加一个黑色圆形浮动按钮「需求」，带未完成数量的红色角标。点击后在按钮上方弹出一个悬浮小面板（不是侧边栏、不是全屏弹窗），面板宽约 360px、最大高度约 480px，点击面板外部自动关闭。面板从上到下分为四个区域：
 >
-> **重要：请先分析项目现有的技术栈、代码结构和风格，然后在此基础上添加功能，不要引入项目中没有的框架或创建独立的新服务。**
+> - **标题栏**：左侧「需求」+ 红色角标（未完成数量），右侧关闭按钮
+> - **输入区**：多行 textarea + 下方右对齐的黑色「提交」按钮，支持 ⌘+Enter 快捷提交
+> - **未完成需求列表**：显示 pending + in_progress 的需求，每条显示灰色圆点、需求文本、时间戳，按创建时间倒序排列（最新在上）；点击某条需求可以编辑内容
+> - **已完成折叠区**：默认折叠，显示「已完成」，点击展开时调接口获取已完成的需求列表
+> - **底部**：居中浅灰色小字「能力支持来自 lena-777/ai-tools」，其中 lena-777/ai-tools 是可点击的链接，指向 https://github.com/lena-777/ai-tools
+>
+> **重要：请先分析项目现有的技术栈、代码结构和风格，然后在此基础上添加功能，不要引入项目中没有的框架或创建独立的新服务。实现完成后请重启/启动服务，并告知我前端访问链接。**
 
 搭建完成后，将本仓库的 `commands/do-tasks/do-tasks.md` 复制到你项目的 `.claude/commands/do-tasks.md`，并把其中的 `$TASK_API_BASE` 替换为实际的 API 地址（如 `http://127.0.0.1:5001`）。
 
@@ -185,85 +184,6 @@ Response: {"ok": true, "message": "状态已更新"}
 - GET 返回的需求列表需按 `created_at` 升序排序（最早的排前面）
 - PATCH 的 `notes` 字段为可选参数
 - `status` 只接受 `pending` / `in_progress` / `done` 三个值
-
-### 前端 UI — 需求悬浮小面板
-
-```
-┌──────────────────────────────┐
-│  页面主内容                     │
-│                              │
-│                              │
-│                              │
-│          ┌──────────────┐    │
-│          │ 需求          ✕│    │  ← 悬浮小面板（~360px 宽）
-│          │───────────────│    │
-│          │ [输入需求...] +│    │  ← 快速添加
-│          │───────────────│    │
-│          │ ○ 添加用户登录  ✕│    │  ← pending 任务
-│          │ ○ 优化首页性能  ✕│    │
-│          │───────────────│    │
-│          │ 已完成 (2) ▸   │    │  ← 可折叠
-│          └──────────────┘    │
-│                      [需求³] │  ← FAB 按钮（带角标）
-└──────────────────────────────┘
-
-面板从 FAB 按钮上方弹出，不占据侧边整栏
-点击面板外部区域自动关闭
-```
-
-#### 参考 HTML
-
-```html
-<!-- FAB 按钮 -->
-<div id="task-fab" onclick="toggleTaskPanel()">
-  需求
-  <span id="task-badge" class="task-badge" style="display:none">0</span>
-</div>
-
-<!-- 悬浮小面板（从 FAB 上方弹出） -->
-<div id="task-panel" class="task-panel-hidden">
-    <div class="task-panel-header">
-        <span>需求</span>
-        <button class="task-panel-close" onclick="toggleTaskPanel()">&times;</button>
-    </div>
-    <div class="task-panel-input">
-        <input type="text" id="task-quick-input"
-               placeholder="输入需求，⌘+回车提交..."
-               onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey))quickAddTask()">
-        <button onclick="quickAddTask()">+</button>
-    </div>
-    <div id="task-panel-list" class="task-panel-list"></div>
-</div>
-```
-
-#### 参考 CSS 要点
-
-```css
-/* FAB 按钮 - 右下角固定 */
-#task-fab {
-  position: fixed; right: 24px; bottom: 24px;
-  z-index: 1000; cursor: pointer;
-}
-
-/* 悬浮小面板 - 定位在 FAB 上方 */
-#task-panel {
-  position: fixed; right: 24px; bottom: 80px;   /* FAB 上方 */
-  width: 360px; max-height: 480px;
-  border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  overflow: hidden; display: flex; flex-direction: column;
-  z-index: 1001;
-}
-
-/* 任务列表区域可滚动 */
-.task-panel-list {
-  flex: 1; overflow-y: auto;
-}
-
-/* 点击面板外部关闭 */
-document.addEventListener('click', (e) => {
-  if (!panel.contains(e.target) && !fab.contains(e.target)) closePanel();
-});
-```
 
 ---
 
