@@ -211,18 +211,43 @@ cd {project_root}/.worktrees/{role_id}
 
 ### 第三步：合并回主分支
 
-所有需求都完成后，**必须**将你的分支合并回主分支并解决所有冲突：
+所有需求都完成后，**必须**将你的分支合并回主分支并解决所有冲突。
+
+#### 3a. 创建合并前快照（安全网）
+
+在合并前，**必须**先为主分支当前状态创建一个轻量标签作为快照，以便合并出错时能一键回退：
 
 ```bash
 cd {project_root}
+BACKUP_TAG="pre-merge/{role_id}/$(date +%s)"
+git tag $BACKUP_TAG HEAD
+```
+
+#### 3b. 执行合并
+
+```bash
 git merge $BRANCH_NAME --no-ff -m "Merge role {role_id}: {role_description}"
 ```
+
+#### 3c. 处理冲突
 
 **如果合并冲突，你必须解决：**
 1. 查看冲突文件，分析冲突内容
 2. 手动解决冲突，保留双方有意义的改动
 3. `git add <冲突文件>` → `git commit`
-4. 如果多次尝试仍无法解决，`git merge --abort`，此角色的任务视为**失败**
+4. 如果解决后发现结果不对，可以回退到快照重新来过：
+   ```bash
+   git reset --hard $BACKUP_TAG
+   ```
+   然后重新尝试合并，或 `git merge --abort` 放弃，此角色的任务视为**失败**
+
+#### 3d. 清理快照标签
+
+合并成功并确认无误后，删除快照标签：
+
+```bash
+git tag -d $BACKUP_TAG
+```
 
 **只有合并成功，任务才算完成。**
 
