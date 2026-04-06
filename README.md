@@ -15,7 +15,7 @@ ai-tools/
 
 | 名称 | 简介 | 适用场景 |
 |------|------|----------|
-| | | |
+| [frontend-design](skills/frontend-design/) | 极简黑白苹果玻璃风设计规范 | 前端页面生成、UI 样式修改 |
 
 ## Commands 索引
 
