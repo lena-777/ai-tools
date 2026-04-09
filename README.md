@@ -11,7 +11,8 @@ ai-tools/
 │   ├── git-sync/    # 一键 git 双向同步
 │   └── upsert-tools/# command/skill 版本管理与同步更新
 ├── skills/          # AI Skills（可复用的能力模块）
-│   └── frontend-design/
+│   ├── frontend-design/
+│   └── wecom-notify/
 └── docs/            # 通用文档（命名规范等）
 ```
 
@@ -41,6 +42,7 @@ ai-tools/
 | 名称 | 简介 | 适用场景 |
 |------|------|----------|
 | [frontend-design](skills/frontend-design/) | 极简黑白苹果玻璃风设计规范 | 前端页面生成、UI 样式修改 |
+| [wecom-notify](skills/wecom-notify/) | 企业微信机器人 Webhook 通知 | 任务通知、构建告警、定时汇报 |
 
 ## 快速开始
 
